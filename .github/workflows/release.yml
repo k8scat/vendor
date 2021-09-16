@@ -31,6 +31,8 @@ jobs:
         run: |
           image_name="${CRP}/${{ github.repository }}"
           docker push ${image_name}:${{ steps.get_version.outputs.VERSION }}
+
+          docker tag ${image_name}:${{ steps.get_version.outputs.VERSION }} ${image_name}:latest
           docker push ${image_name}:latest
 
       - name: Create Release
