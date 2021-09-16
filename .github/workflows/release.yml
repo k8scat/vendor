@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "*"
+
+env:
+  CRP: ghcr.io
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Get version
+        id: get_version
+        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+
+      - name: Build image
+        run: docker build -t ${CRP}/${{ github.repository }}:${{ steps.get_version.outputs.VERSION }} .
+
+      - name: Login CR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login https://${CRP} -u ${{ github.repository_owner }} --password-stdin
+
+      - name: Push image
+        env:
+          VERSION: ${{ steps.get_version.outputs.VERSION }}
+        run: |
+          image_name="${CRP}/${{ github.repository }}"
+          docker push ${image_name}:${{ steps.get_version.outputs.VERSION }}
+          docker push ${image_name}:latest
+
+      - name: Create Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.get_version.outputs.VERSION }}
+          release_name: ${{ steps.get_version.outputs.VERSION }}
+          draft: false
+          prerelease: false

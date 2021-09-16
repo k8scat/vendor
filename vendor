@@ -1,0 +1,99 @@
+#!/bin/bash
+set -e
+
+OUTPUT="/data/vendor.tgz"
+
+GH_USER=""
+GH_TOKEN=""
+REPO=""
+BRANCH=""
+GOPRIVATE=""
+WORKDIR=""
+
+function parse_opts() {
+  if [[ $# -eq 0 ]]; then usage; fi
+
+  while getopts 't:r:p:w:o:b:u:' OPT; do
+    case ${OPT} in
+      t) GH_TOKEN="${OPTARG}";;
+      r) REPO="${OPTARG}";;
+      p) GOPRIVATE="${OPTARG}";;
+      w) WORKDIR="${OPTARG}";;
+      o) OUTPUT="${OPTARG}";;
+      b) BRANCH="${OPTARG}";;
+      u) GH_USER="${OPTARG}";;
+      *) usage;;
+    esac
+  done
+}
+
+function usage() {
+  echo "Usage: $0"
+  echo "-u <GH_USER>"
+  echo "-t <GH_TOKEN>"
+  echo "-r <REPO>"
+  echo "-b [BRANCH]"
+  echo "-p [GOPRIVATE]"
+  echo "-w [WORKDIR]"
+  echo "-o [OUTPUT=/data/vendor.tgz]"
+  exit 1
+}
+
+function prepare_env() {
+  if [[ -n "${GOPRIVATE}" ]]; then
+    go env -w GOPRIVATE=${GOPRIVATE}
+  fi
+  git config --global url."https://${GH_TOKEN}@github.com/${GH_USER}".insteadOf "https://github.com/${GH_USER}"
+
+  REPO_URL="https://github.com/${GH_USER}/${REPO}.git"
+  
+  if [[ -z "${WORKDIR}" ]]; then
+    WORKDIR="/go/src/github.com/${GH_USER}"
+  fi
+  mkdir -p ${WORKDIR}
+
+  local output_dir=$(dirname ${OUTPUT})
+  if [[ ! -d "${output_dir}" ]]; then
+    mkdir -p ${output_dir}
+  fi
+}
+
+function check_args() {
+  if [[ -z "${GH_TOKEN}" ]]; then
+    echo "Invalid GH_TOKEN"
+    exit 1
+  fi
+  if [[ -z "${REPO}" ]]; then
+    echo "Invalid REPO"
+    exit 1
+  fi
+  if [[ -z "${GH_USER}" ]]; then
+    echo "Invalid GH_USER"
+    exit 1
+  fi
+}
+
+function clone_repo() {
+  cd ${WORKDIR}
+  git clone ${REPO_URL}
+}
+
+function vendor() {
+  cd ${WORKDIR}/${REPO}
+  if [[ -n "${BRANCH}" ]]; then
+    git checkout ${BRANCH}
+  fi
+  govendor sync -v
+  tar zcf ${OUTPUT} vendor
+}
+
+function main() {
+  parse_opts "$@"
+  check_args
+
+  prepare_env
+  clone_repo
+  vendor
+}
+
+main "$@"
