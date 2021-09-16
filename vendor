@@ -83,7 +83,7 @@ function vendor() {
   if [[ -n "${BRANCH}" ]]; then
     git checkout ${BRANCH}
   fi
-  govendor sync -v
+  govendor sync -v || true
   tar zcf ${OUTPUT} vendor
 }
 
